@@ -1,3 +1,5 @@
+
+
 # Claude Skills Library
 
 A comprehensive collection of 16 production-ready Claude Skills covering document manipulation, testing, database management, API design, DevOps, code quality, and communication workflows.
@@ -82,7 +84,7 @@ pip install mcp anthropic  # Python SDK for MCP
 # No installation needed - pure JavaScript, run examples in browser
 
 # API Designer (api-designer)
-pip install pydantic fastapi jsonschema pyyaml
+pip install pydantic jsonschema pyyaml
 
 # SQL Expert (sql-expert)
 pip install sqlalchemy psycopg2-binary pymysql
