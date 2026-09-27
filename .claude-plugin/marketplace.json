@@ -1,0 +1,133 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-skills",
+  "owner": {
+    "name": "AutumnsGrove",
+    "url": "https://github.com/AutumnsGrove"
+  },
+  "metadata": {
+    "description": "A collection of 16 production-ready Agent Skills covering document manipulation, testing, databases, API design, DevOps, code quality, and communication workflows.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "document-skills",
+      "description": "Create, edit, and analyze Excel spreadsheets, PowerPoint presentations, and PDF documents.",
+      "source": "./",
+      "strict": false,
+      "category": "productivity",
+      "keywords": [
+        "xlsx",
+        "excel",
+        "pptx",
+        "powerpoint",
+        "pdf",
+        "documents"
+      ],
+      "skills": [
+        "./xlsx",
+        "./pptx",
+        "./pdf"
+      ]
+    },
+    {
+      "name": "development-skills",
+      "description": "Playwright web app testing, MCP server development, D3.js data visualization, and REST/GraphQL API design.",
+      "source": "./",
+      "strict": false,
+      "category": "development",
+      "keywords": [
+        "playwright",
+        "testing",
+        "mcp",
+        "d3",
+        "visualization",
+        "api",
+        "openapi",
+        "graphql"
+      ],
+      "skills": [
+        "./webapp-testing",
+        "./mcp-builder",
+        "./d3js-visualization",
+        "./api-designer"
+      ]
+    },
+    {
+      "name": "database-skills",
+      "description": "SQL query writing, optimization, and schema design for PostgreSQL, MySQL, SQLite, and SQL Server.",
+      "source": "./",
+      "strict": false,
+      "category": "development",
+      "keywords": [
+        "sql",
+        "database",
+        "postgresql",
+        "mysql",
+        "sqlite"
+      ],
+      "skills": [
+        "./sql-expert"
+      ]
+    },
+    {
+      "name": "devops-skills",
+      "description": "Docker containerization workflows and environment/secrets configuration management.",
+      "source": "./",
+      "strict": false,
+      "category": "development",
+      "keywords": [
+        "docker",
+        "compose",
+        "containers",
+        "env",
+        "secrets",
+        "configuration"
+      ],
+      "skills": [
+        "./docker-workflow",
+        "./env-config"
+      ]
+    },
+    {
+      "name": "code-quality-skills",
+      "description": "Advanced Git operations, automated code review, and systematic debugging with the TRACE framework.",
+      "source": "./",
+      "strict": false,
+      "category": "development",
+      "keywords": [
+        "git",
+        "code-review",
+        "security",
+        "debugging",
+        "errors"
+      ],
+      "skills": [
+        "./git-advanced",
+        "./code-reviewer",
+        "./error-detective"
+      ]
+    },
+    {
+      "name": "communication-skills",
+      "description": "Brand guideline enforcement, internal communications templates, and professional Markdown documentation.",
+      "source": "./",
+      "strict": false,
+      "category": "productivity",
+      "keywords": [
+        "brand",
+        "style-guide",
+        "internal-comms",
+        "newsletter",
+        "markdown",
+        "readme",
+        "changelog"
+      ],
+      "skills": [
+        "./brand-guidelines",
+        "./internal-comms",
+        "./markdown-pro"
+      ]
+    }
+  ]
+}

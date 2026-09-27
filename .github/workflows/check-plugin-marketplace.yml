@@ -1,0 +1,36 @@
+name: Check Plugin Marketplace
+
+# Runs on every PR (no path filter on purpose): a new or renamed skill folder
+# must trip this check even when nobody touched the marketplace manifest.
+# The `plugins` dist branch is published separately by
+# publish-plugin-marketplace.yml on push to master.
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-plugin-marketplace:
+    name: marketplace manifest matches the skill roster
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check manifest structure against the skill folders
+        run: ./scripts/check-plugin-marketplace.sh
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate against Claude Code plugin rules
+        run: claude plugin validate .
+
+      # A plugin can install cleanly yet register zero skills, so install each
+      # one into a throwaway config and assert it registers exactly the skills
+      # the manifest lists.
+      - name: Smoke test plugin registration
+        run: ./scripts/smoke-test-plugins.sh

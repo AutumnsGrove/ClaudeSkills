@@ -1,0 +1,45 @@
+name: Publish Plugin Marketplace
+
+# On every push to master, builds the marketplace from the committed tree
+# (manifests + listed skill folders + docs, via scripts/publish-marketplace.sh),
+# validates and smoke-tests that build, and commits it to the `plugins` dist
+# branch. Consumers who want only validated, released content can pin to it:
+#   /plugin marketplace add AutumnsGrove/ClaudeSkills#plugins
+#
+# The PR-time gate is check-plugin-marketplace.yml. This workflow only fires on
+# master, and the script re-validates the build, so the dist branch never
+# carries unvalidated content.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-plugin-marketplace
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish marketplace to the plugins branch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Publish plugins branch
+        run: ./scripts/publish-marketplace.sh origin plugins
+
+      - name: Verify published branch present
+        run: |
+          git ls-remote --heads origin plugins | grep -q "refs/heads/plugins" \
+            || { echo "FAILED: plugins branch not found on origin"; exit 1; }

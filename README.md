@@ -51,6 +51,67 @@ A comprehensive collection of 16 production-ready Claude Skills covering documen
 
 ## 🚀 Quick Start
 
+### Install as a Plugin Marketplace
+
+This repository is a plugin marketplace (see [`.claude-plugin/marketplace.json`](./.claude-plugin/marketplace.json), mirrored at [`.github/plugin/marketplace.json`](./.github/plugin/marketplace.json) for GitHub Copilot tools), so any tool that supports the agent plugin marketplace standard can install the skills directly from GitHub.
+
+The skills are grouped into plugins by category:
+
+| Plugin | Skills |
+|--------|--------|
+| `document-skills` | xlsx, pptx, pdf |
+| `development-skills` | webapp-testing, mcp-builder, d3js-visualization, api-designer |
+| `database-skills` | sql-expert |
+| `devops-skills` | docker-workflow, env-config |
+| `code-quality-skills` | git-advanced, code-reviewer, error-detective |
+| `communication-skills` | brand-guidelines, internal-comms, markdown-pro |
+
+**Claude Code**
+
+```bash
+/plugin marketplace add AutumnsGrove/ClaudeSkills
+/plugin install document-skills@claude-skills
+```
+
+Or run `/plugin` and browse the `claude-skills` marketplace to pick plugins interactively. The same commands work from the shell as `claude plugin marketplace add ...` and `claude plugin install ...`.
+
+**VS Code (GitHub Copilot agent plugins)**
+
+Add the repository to the `chat.plugins.marketplaces` setting, then install plugins from the Extensions view (search `@agentPlugins`):
+
+```json
+"chat.plugins.marketplaces": ["AutumnsGrove/ClaudeSkills"]
+```
+
+**GitHub Copilot CLI**
+
+```bash
+copilot plugin marketplace add AutumnsGrove/ClaudeSkills
+copilot plugin install document-skills@claude-skills
+```
+
+**Pinning to validated releases**
+
+Every push to `master` is validated, smoke-tested, and published to the `plugins` branch, which contains only the manifests and skill folders. To track that branch instead of `master`, append `#plugins` to the source, e.g. `/plugin marketplace add AutumnsGrove/ClaudeSkills#plugins` or `"AutumnsGrove/ClaudeSkills#plugins"` in VS Code.
+
+**Maintaining the marketplace**
+
+When you add, rename, or remove a skill, register its folder in exactly one plugin's `skills` list in `.claude-plugin/marketplace.json`, then run the same checks CI runs:
+
+```bash
+./scripts/check-plugin-marketplace.sh   # manifest matches the skill folders (bash + jq)
+claude plugin validate .                # Claude Code plugin rules
+./scripts/smoke-test-plugins.sh         # every plugin installs and registers its skills
+```
+
+GitHub Actions workflows in `.github/workflows/`:
+
+| Workflow | Runs on | What it does |
+|----------|---------|--------------|
+| `check-plugin-marketplace.yml` | every PR and push to `master` | Runs the three checks above |
+| `publish-plugin-marketplace.yml` | push to `master` | Builds, re-validates, and publishes the `plugins` branch |
+| `sync-to-claude-plugins.yml` | push to `master` | Mirrors the plugins into a central marketplace repo and opens a PR there. Skipped until the `CLAUDE_PLUGINS_REPO` variable (and the `CLAUDE_PLUGINS_APP_ID` / `CLAUDE_PLUGINS_APP_PRIVATE_KEY` secrets for a GitHub App on that repo) are set; see the workflow header |
+
 ### Using Skills with Claude
 
 1. **In Claude.ai or Claude Code**: Reference skills by name when working on related tasks
@@ -212,6 +273,12 @@ This creates a `ZippedSkills/` folder containing individual .zip files for all s
 ```
 ClaudeSkills/
 ├── README.md                          # This file
+├── .claude-plugin/
+│   └── marketplace.json               # Plugin marketplace manifest
+├── .github/
+│   ├── plugin/marketplace.json        # Symlink to the manifest (Copilot tools)
+│   └── workflows/                     # Marketplace check, publish, and sync
+├── scripts/                           # Marketplace check, smoke test, publish
 ├── xlsx/
 │   ├── SKILL.md                       # Comprehensive documentation
 │   ├── scripts/

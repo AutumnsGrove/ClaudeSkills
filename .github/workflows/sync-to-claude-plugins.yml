@@ -1,0 +1,147 @@
+name: Sync plugins to claude-plugins
+
+# Mirrors this marketplace's plugins into a central plugin marketplace repo and
+# opens a PR there. Plugins land under <target>/<CLAUDE_PLUGINS_DIR>/ and are
+# upserted by name into the target's .claude-plugin/marketplace.json; plugins
+# previously synced from here that no longer exist are removed.
+#
+# Setup (the job is skipped until CLAUDE_PLUGINS_REPO is set):
+#   Repository variables:
+#     CLAUDE_PLUGINS_REPO  target repo as owner/name, e.g. my-org/claude-plugins
+#     CLAUDE_PLUGINS_DIR   folder in the target repo (optional, default: claude-skills)
+#   Repository secrets (a GitHub App installed on the target repo, with
+#   contents: write and pull-requests: write):
+#     CLAUDE_PLUGINS_APP_ID
+#     CLAUDE_PLUGINS_APP_PRIVATE_KEY
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-to-claude-plugins
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: vars.CLAUDE_PLUGINS_REPO != ''
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPO: ${{ vars.CLAUDE_PLUGINS_REPO }}
+      TARGET_DIR: ${{ vars.CLAUDE_PLUGINS_DIR || 'claude-skills' }}
+    steps:
+      - name: Checkout ClaudeSkills
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Check manifest before syncing
+        run: ./source/scripts/check-plugin-marketplace.sh
+
+      - name: Split target repo
+        id: target
+        run: |
+          echo "owner=${TARGET_REPO%%/*}" >> "$GITHUB_OUTPUT"
+          echo "name=${TARGET_REPO#*/}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.CLAUDE_PLUGINS_APP_ID }}
+          private-key: ${{ secrets.CLAUDE_PLUGINS_APP_PRIVATE_KEY }}
+          owner: ${{ steps.target.outputs.owner }}
+          repositories: ${{ steps.target.outputs.name }}
+
+      - name: Checkout target marketplace
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TARGET_REPO }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: target
+
+      - name: Create branch
+        id: branch
+        working-directory: target
+        run: |
+          echo "base=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          BRANCH="sync/claude-skills-$(date +%Y%m%d)-${SHORT_SHA}"
+          git checkout -b "$BRANCH"
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Copy skills
+        run: |
+          MANIFEST="source/.claude-plugin/marketplace.json"
+          mapfile -t skills < <(jq -r '.plugins[] | (.source | sub("/+$"; "")) as $src | (.skills // [])[]
+            | ($src + "/" + sub("^\\./"; "") | sub("^\\./"; "") | sub("/+$"; ""))' "$MANIFEST" | sort -u)
+          # Replace the whole folder so removed or renamed skills disappear too.
+          rm -rf "target/$TARGET_DIR"
+          mkdir -p "target/$TARGET_DIR"
+          git -C source archive --format=tar HEAD -- "${skills[@]}" | tar -x -C "target/$TARGET_DIR"
+
+      - name: Merge marketplace
+        run: |
+          SOURCE="source/.claude-plugin/marketplace.json"
+          TARGET="target/.claude-plugin/marketplace.json"
+          PREFIX="./$TARGET_DIR"
+          mkdir -p "$(dirname "$TARGET")"
+
+          # Rebase each plugin's source from this repo's root onto the target folder.
+          jq --arg prefix "$PREFIX" '
+            .plugins |= map(.source |= if type != "string" then . else
+              (sub("/+$"; "") | if . == "." or . == "" then $prefix else $prefix + "/" + sub("^\\./"; "") end) end)
+          ' "$SOURCE" > /tmp/source.json
+
+          if [ ! -f "$TARGET" ]; then
+            cp /tmp/source.json "$TARGET"
+          else
+            # Drop every plugin previously synced from here (source under the
+            # prefix) and any plugin whose name we now own, then append ours.
+            jq -s --arg prefix "$PREFIX" '
+              .[0] as $target | .[1] as $source |
+              ($source.plugins | map(.name)) as $names |
+              $target | .plugins = (
+                [ .plugins[]
+                  | select((.source | type) != "string"
+                           or ((.source == $prefix or (.source | startswith($prefix + "/"))) | not))
+                  | select(.name as $n | $names | index($n) | not) ]
+                + $source.plugins
+              )
+            ' "$TARGET" /tmp/source.json > /tmp/merged.json
+            mv /tmp/merged.json "$TARGET"
+          fi
+
+          # Keep a .github/plugin mirror in step if the target uses one as a copy.
+          MIRROR="target/.github/plugin/marketplace.json"
+          if [ -f "$MIRROR" ] && [ ! -L "$MIRROR" ]; then cp "$TARGET" "$MIRROR"; fi
+
+      - name: Commit and push
+        id: commit
+        working-directory: target
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore: sync plugins from ClaudeSkills @ ${GITHUB_SHA}"
+            git push origin "${{ steps.branch.outputs.name }}"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open PR
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh pr create \
+            --repo "$TARGET_REPO" \
+            --title "chore: sync plugins from ClaudeSkills" \
+            --body "Automated sync of plugins and marketplace entries from [${GITHUB_REPOSITORY}@${GITHUB_SHA:0:7}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})." \
+            --base "${{ steps.branch.outputs.base }}" \
+            --head "${{ steps.branch.outputs.name }}"
